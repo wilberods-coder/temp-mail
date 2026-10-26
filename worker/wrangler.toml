@@ -1,0 +1,16 @@
+name = "temp-mail"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# Удаление просроченных ящиков — раз в минуту
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+# С каких сайтов браузеру разрешено обращаться к Worker'у
+ALLOWED_ORIGINS = "https://wilberods-coder.github.io,http://127.0.0.1:5190,http://localhost:5190"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "temp-mail"
+database_id = "35eb4cb3-f910-4f9e-9e7e-1031fe3d5f20"

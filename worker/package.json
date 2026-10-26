@@ -1,0 +1,14 @@
+{
+  "name": "temp-mail-worker",
+  "private": true,
+  "description": "Cloudflare Worker — бэкенд временной почты для GitHub Pages",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute temp-mail --remote --file schema.sql",
+    "db:init:local": "wrangler d1 execute temp-mail --local --file schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "4.152.0"
+  }
+}

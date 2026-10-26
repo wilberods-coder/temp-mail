@@ -309,8 +309,10 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<script src="config.js"></script>
 <script>
 (() => {
+  const BACKEND = String(window.TEMPMAIL_BACKEND || '').replace(/\/$/, '');
   const POLL_MS = 5000;
   const STORE_KEY = 'tempmail.boxes.v2';
   const ACTIVE_KEY = 'tempmail.active.v2';
@@ -422,8 +424,8 @@
     if (res.status === 204) return null;
     return res.json();
   }
-  const api = (path, opts) => request('/api' + path, opts);
-  const svc = (path, body) => request('/svc' + path, { method: 'POST', body, retry: false });
+  const api = (path, opts) => request(BACKEND + '/api' + path, opts);
+  const svc = (path, body) => request(BACKEND + '/svc' + path, { method: 'POST', body, retry: false });
 
   async function relogin(box) {
     const data = await svc('/login', { address: box.address, password: box.password });

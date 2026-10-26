@@ -10,6 +10,10 @@
 [![Zero dependencies](https://img.shields.io/badge/зависимости-0-3b6cf6)](package.json)
 [![mail.tm](https://img.shields.io/badge/backend-mail.tm-6b8fff)](https://docs.mail.tm)
 [![License: MIT](https://img.shields.io/badge/license-MIT-f0b44a)](LICENSE)
+[![GitHub Pages](https://img.shields.io/github/actions/workflow/status/wilberods-coder/temp-mail/pages.yml?label=GitHub%20Pages&logo=github)](https://wilberods-coder.github.io/temp-mail/)
+[![Cloudflare Workers](https://img.shields.io/badge/API-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white)](worker)
+
+### [🌐 Открыть сайт → wilberods-coder.github.io/temp-mail](https://wilberods-coder.github.io/temp-mail/)
 
 [**Возможности**](#-возможности) · [**Быстрый старт**](#-быстрый-старт) · [**Деплой**](#%EF%B8%8F-деплой) · [**Как это работает**](#%EF%B8%8F-как-это-работает) · [**API**](#-api)
 
@@ -69,7 +73,7 @@ HTML-письма открываются в изолированном `iframe` 
 
 ## 🚀 Быстрый старт
 
-Нужен только **Node.js 18+** — никаких `npm install`.
+Проще всего — открыть **[готовый сайт](https://wilberods-coder.github.io/temp-mail/)**. Чтобы запустить у себя, нужен только **Node.js 18+** — никаких `npm install`.
 
 ```bash
 git clone https://github.com/wilberods-coder/temp-mail.git
@@ -87,7 +91,26 @@ npm start
 ## ☁️ Деплой
 
 > [!IMPORTANT]
-> GitHub Pages и другой статический хостинг **не подойдут**: mail.tm разрешает запросы из браузера только со своего сайта, поэтому нужен маленький Node-сервер-прокси (он уже в репозитории).
+> mail.tm разрешает запросы из браузера только со своего сайта, поэтому одной статической страницы мало — нужен прокси. В репозитории их два: [`server.js`](server.js) (Node.js) и [`worker/`](worker) (Cloudflare Worker).
+
+### GitHub Pages + Cloudflare Worker — бесплатно и без сервера
+
+Так работает [живая версия](https://wilberods-coder.github.io/temp-mail/): страница лежит на GitHub Pages, API — на Cloudflare Workers, сроки ящиков — в базе Cloudflare D1, удаление просроченных — по cron раз в минуту.
+
+1. **Worker** (нужен бесплатный аккаунт Cloudflare):
+
+   ```bash
+   cd worker
+   npm install
+   npx wrangler login
+   npx wrangler d1 create temp-mail   # вставьте database_id в wrangler.toml
+   npm run db:init
+   npm run deploy                     # выведет https://temp-mail.<ваш-поддомен>.workers.dev
+   ```
+
+2. **Настройка.** Впишите адрес Worker'а в [`public/config.js`](public/config.js), а адрес своего сайта (`https://<логин>.github.io`) — в `ALLOWED_ORIGINS` в [`worker/wrangler.toml`](worker/wrangler.toml), затем повторите `npm run deploy`.
+
+3. **Pages.** В репозитории: *Settings → Pages → Source: GitHub Actions*. Дальше каждый пуш в `public/` выкладывается автоматически через [`pages.yml`](.github/workflows/pages.yml).
 
 ### Render — в один клик
 
@@ -116,20 +139,23 @@ HOST=0.0.0.0 PORT=80 node server.js
 
 ```mermaid
 flowchart LR
-    U["🧑 Браузер<br/>public/index.html"] -- "/svc/* — создание, вход" --> S["🟢 server.js"]
-    U -- "/api/* — письма" --> S
-    S -- "прокси" --> M[("📮 api.mail.tm")]
-    S -. "каждые 30 сек:<br/>удаление просроченных" .-> M
-    S <--> D[("💾 data/boxes.json<br/>адрес · пароль · срок")]
+    U["🧑 Браузер<br/>public/index.html"] -- "/svc/* — создание, вход<br/>/api/* — письма" --> B
+    subgraph B ["Бэкенд — один из двух"]
+        W["☁️ Cloudflare Worker<br/>+ D1 + cron"]
+        S["🟢 server.js<br/>+ data/boxes.json"]
+    end
+    B -- "прокси" --> M[("📮 api.mail.tm")]
+    B -. "удаление<br/>просроченных" .-> M
 ```
 
-- **`public/index.html`** — весь интерфейс в одном файле: HTML, CSS и JS без сборки и фреймворков.
-- **`server.js`** — ~250 строк на чистом Node.js: отдаёт страницу, проксирует `/api/*` на mail.tm и ведёт сроки жизни.
-- **Сроки жизни.** У mail.tm их нет, поэтому сервер записывает каждый созданный ящик в `data/boxes.json` и раз в 30 секунд удаляет просроченные. Если страница открыта в момент истечения, ящик удаляется сразу.
+- **`public/index.html`** — весь интерфейс в одном файле: HTML, CSS и JS без сборки и фреймворков. [`config.js`](public/config.js) выбирает бэкенд: на github.io — Worker, иначе — тот же сервер, что отдал страницу.
+- **`worker/`** — бэкенд для GitHub Pages на Cloudflare Workers: сроки в D1, cron раз в минуту.
+- **`server.js`** — тот же бэкенд на чистом Node.js (~250 строк) для своего сервера: отдаёт страницу, сроки хранит в `data/boxes.json`, проверяет их каждые 30 секунд.
+- **Сроки жизни.** У mail.tm их нет, поэтому бэкенд запоминает каждый созданный ящик и сам удаляет просроченные. Если страница открыта в момент истечения, ящик удаляется сразу.
 
 ## 📡 API
 
-Собственные эндпоинты сервера (всё остальное — прозрачный прокси `/api/*` → [api.mail.tm](https://docs.mail.tm)):
+Одинаковое у `server.js` и Worker'а (`https://temp-mail.wilberods.workers.dev`). Собственные эндпоинты (всё остальное — прозрачный прокси `/api/*` → [api.mail.tm](https://docs.mail.tm)):
 
 | Метод | Путь | Тело | Ответ |
 |---|---|---|---|
@@ -150,10 +176,17 @@ curl -X POST http://127.0.0.1:5190/svc/boxes \
 ```
 temp-mail/
 ├── public/
-│   └── index.html     # интерфейс
-├── server.js          # статика + прокси + сроки жизни
-├── data/              # boxes.json (создаётся автоматически, в .gitignore)
-├── docs/              # скриншоты для README
+│   ├── index.html         # интерфейс
+│   └── config.js          # адрес бэкенда
+├── worker/                # бэкенд на Cloudflare Workers (для GitHub Pages)
+│   ├── src/index.js
+│   ├── schema.sql         # таблица D1
+│   └── wrangler.toml
+├── server.js              # бэкенд на Node.js: статика + прокси + сроки жизни
+├── data/                  # boxes.json для server.js (в .gitignore)
+├── docs/                  # скриншоты для README
+├── .github/workflows/
+│   └── pages.yml          # выкладка public/ на GitHub Pages
 ├── Dockerfile
 └── render.yaml
 ```
@@ -162,7 +195,7 @@ temp-mail/
 
 - **Только приём** писем — отправка не поддерживается.
 - **Лимит mail.tm** — около 30 запросов в минуту с одного IP. На сервере все пользователи делят его IP, так что сервис рассчитан на личное или небольшое использование.
-- **`data/boxes.json` содержит пароли ящиков** — не публикуйте его (он уже в `.gitignore`).
+- **Бэкенд хранит пароли ящиков** (`data/boxes.json` или база D1), чтобы удалить ящик по истечении срока. Не публикуйте их — `data/` уже в `.gitignore`.
 - Не используйте временную почту для важных аккаунтов: восстановить доступ после удаления ящика будет невозможно.
 
 ## 🙏 Благодарности
