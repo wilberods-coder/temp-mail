@@ -14,7 +14,7 @@ crons = ["* * * * *"]
 # С каких сайтов браузеру разрешено обращаться к Worker'у
 ALLOWED_ORIGINS = "https://wilberods-coder.github.io,http://127.0.0.1:5190,http://localhost:5190"
 # OAuth Client ID из Google Cloud Console (публичный, не секрет). Пусто — кнопка Google скрыта
-GOOGLE_CLIENT_ID = ""
+GOOGLE_CLIENT_ID = "976171605030-97d31rst79j09p71ogpred0b8uajpbp0.apps.googleusercontent.com"
 
 [[d1_databases]]
 binding = "DB"
