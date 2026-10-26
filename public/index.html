@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Временная почта</title>
-<meta name="description" content="Одноразовые почтовые ящики со сроком жизни от 15 минут до недели. Работает на API mail.tm.">
+<meta name="description" content="Одноразовые почтовые ящики со сроком жизни от 15 минут до недели или навсегда. Работает на API mail.tm.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✉️</text></svg>">
 <style>
   :root {
@@ -19,8 +19,10 @@
     --accent-soft: #e8eefe;
     --danger: #d64545;
     --warn: #c47a00;
+    --ok: #1f9d5c;
     --unread: #3b6cf6;
     --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 4px 16px rgba(16, 24, 40, .06);
+    --shadow-lg: 0 12px 40px rgba(16, 24, 40, .18);
     --radius: 14px;
   }
   @media (prefers-color-scheme: dark) {
@@ -36,8 +38,10 @@
       --accent-soft: #1f2a48;
       --danger: #f06a6a;
       --warn: #f0b44a;
+      --ok: #3fcf86;
       --unread: #6b8fff;
       --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .25);
+      --shadow-lg: 0 12px 40px rgba(0, 0, 0, .5);
     }
   }
   :root[data-theme="dark"] {
@@ -52,8 +56,10 @@
     --accent-soft: #1f2a48;
     --danger: #f06a6a;
     --warn: #f0b44a;
+    --ok: #3fcf86;
     --unread: #6b8fff;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .25);
+    --shadow-lg: 0 12px 40px rgba(0, 0, 0, .5);
   }
 
   * { box-sizing: border-box; }
@@ -71,8 +77,9 @@
 
   .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
   header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; min-width: 0; }
   .brand small { font-weight: 400; color: var(--muted); font-size: 13px; }
+  .top-right { display: flex; align-items: center; gap: 6px; }
 
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 
@@ -88,6 +95,7 @@
   .btn.ghost { border-color: transparent; background: transparent; }
   .btn.icon { padding: 8px 10px; }
   .btn.big { width: 100%; padding: 12px 16px; font-size: 16px; }
+  .link { border: 0; background: none; padding: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 
   .field { display: grid; gap: 6px; }
   .field label, .label { color: var(--muted); font-size: 13px; }
@@ -97,6 +105,63 @@
   }
   .input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
 
+  /* ---------- аккаунт в шапке ---------- */
+  .account { position: relative; }
+  .account-btn {
+    display: flex; align-items: center; gap: 8px; max-width: 240px;
+    padding: 4px 10px 4px 4px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel);
+  }
+  .account-btn:hover { background: var(--panel-2); }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 14px; overflow: hidden;
+  }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .account-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 14px; }
+  .caret { color: var(--muted); font-size: 11px; }
+
+  .menu {
+    position: absolute; right: 0; top: 100%; z-index: 20; padding-top: 8px; /* мост для наведения */
+    width: min(340px, calc(100vw - 32px)); display: none;
+  }
+  @media (hover: hover) { .account:hover .menu { display: block; } }
+  .account.open .menu { display: block; }
+  .account.picked .menu { display: none; } /* после выбора ящика — до ухода курсора */
+  .menu-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); overflow: hidden; }
+  .menu-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: center; }
+  .menu-head .avatar { width: 38px; height: 38px; font-size: 16px; }
+  .menu-head b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .menu-head small { color: var(--muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .menu-head > div { min-width: 0; }
+  .menu-title { padding: 10px 16px 4px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .menu-list { max-height: 300px; overflow-y: auto; padding: 0 6px 6px; }
+  .menu-item {
+    display: flex; width: 100%; align-items: center; gap: 10px; text-align: left;
+    padding: 8px 10px; border: 0; border-radius: 10px; background: transparent;
+  }
+  .menu-item:hover { background: var(--panel-2); }
+  .menu-item.active { background: var(--accent-soft); }
+  .menu-item .mi-main { flex: 1; min-width: 0; }
+  .menu-item .mi-addr { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .menu-item .mi-meta { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .menu-item .mi-check { color: var(--accent); font-weight: 700; }
+  .menu-empty { padding: 8px 16px 12px; color: var(--muted); font-size: 13px; }
+  .menu-actions { border-top: 1px solid var(--border); padding: 6px; display: grid; }
+  .menu-actions .menu-item { font-size: 14px; }
+  .menu-actions .danger { color: var(--danger); }
+
+  /* ---------- окно входа ---------- */
+  dialog.auth {
+    width: min(420px, calc(100vw - 32px)); padding: 8px; color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow-lg);
+  }
+  dialog.auth::backdrop { background: rgba(10, 12, 16, .55); }
+  .auth-top { display: flex; gap: 8px; align-items: center; }
+  .auth-top .tabs { flex: 1; }
+  .divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  #googleBtn { display: flex; justify-content: center; min-height: 44px; }
+
   /* ---------- стартовый экран ---------- */
   .landing { max-width: 480px; margin: 24px auto 0; padding: 8px; }
   .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--panel-2); border-radius: 12px; padding: 4px; }
@@ -104,9 +169,9 @@
   .tab.active { background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
   .pane { padding: 20px 12px 12px; display: grid; gap: 16px; }
   .pane h2 { margin: 0; font-size: 18px; }
-  .pane p.hint { margin: -8px 0 0; color: var(--muted); font-size: 13px; }
+  .hint { margin: -8px 0 0; color: var(--muted); font-size: 13px; }
 
-  .ttl { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .ttl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .ttl input { position: absolute; opacity: 0; pointer-events: none; }
   .ttl label {
     display: grid; place-items: center; text-align: center; padding: 10px 4px; border-radius: 10px;
@@ -115,12 +180,16 @@
   .ttl label small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
   .ttl input:checked + label { border-color: var(--accent); background: var(--accent-soft); }
   .ttl input:focus-visible + label { outline: 2px solid var(--accent); }
+  .ttl .forever { font-size: 18px; }
+  .ttl-note { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .ttl-note b { color: var(--text); }
 
   details.custom summary { cursor: pointer; color: var(--muted); font-size: 13px; }
   .custom-row { display: flex; gap: 8px; margin-top: 10px; }
   .custom-row .input:first-child { flex: 1 1 auto; }
   .custom-row select.input { flex: 0 1 190px; }
   .back-link { justify-self: center; }
+  .account-cta { text-align: center; font-size: 13px; color: var(--muted); margin-top: -4px; }
 
   /* ---------- ящик ---------- */
   .address { padding: 20px; display: grid; gap: 14px; }
@@ -133,7 +202,7 @@
   }
   .address-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .meta { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 13px; align-items: center; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #2fb36d; display: inline-block; margin-right: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); display: inline-block; margin-right: 6px; }
   .dot.off { background: var(--muted); }
   .timer { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 600; }
   .timer.soon { color: var(--warn); }
@@ -141,15 +210,6 @@
   .secret { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-radius: 10px; background: var(--panel-2); font-size: 13px; }
   .secret code { font: 600 14px ui-monospace, SFMono-Regular, Menlo, monospace; user-select: all; word-break: break-all; }
   .secret .grow { flex: 1; min-width: 0; color: var(--muted); }
-
-  .boxes { display: flex; gap: 8px; flex-wrap: wrap; }
-  .chip {
-    display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
-    padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border);
-    background: var(--panel); font-size: 13px;
-  }
-  .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .chip.active { background: var(--accent-soft); border-color: var(--accent); }
 
   .mail { display: grid; grid-template-columns: 360px 1fr; margin-top: 18px; min-height: 520px; overflow: hidden; }
   .list { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-width: 0; }
@@ -184,7 +244,7 @@
   .toast {
     position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
     background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px;
-    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 10; max-width: calc(100% - 32px);
+    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 30; max-width: calc(100% - 32px);
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -193,6 +253,7 @@
 
   @media (max-width: 760px) {
     .wrap { padding-top: 16px; }
+    .brand small { display: none; }
     .address-value { font-size: 16px; flex-basis: 100%; }
     .mail { grid-template-columns: 1fr; }
     .list { border-right: 0; }
@@ -201,9 +262,13 @@
     .back { display: inline-flex; }
     .list-body { max-height: none; }
   }
-  @media (max-width: 440px) {
-    .brand small { display: none; }
-    .ttl { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 480px) {
+    header.top { position: relative; }
+    .account { position: static; } /* меню растягивается на всю ширину шапки */
+    .menu { left: 0; right: 0; width: auto; }
+    .brand { font-size: 17px; }
+    .account-name, .caret { display: none; }
+    .account-btn { padding: 4px; }
     .custom-row { flex-wrap: wrap; }
     .custom-row select.input { flex-basis: 100%; }
   }
@@ -213,18 +278,35 @@
 <div class="wrap">
   <header class="top">
     <div class="brand">✉️ Временная почта <small>одноразовые ящики</small></div>
-    <button class="btn ghost icon" id="themeBtn" title="Сменить тему">🌓</button>
+    <div class="top-right">
+      <div class="account" id="account">
+        <button class="account-btn" id="accountBtn" aria-haspopup="true" aria-expanded="false">
+          <span class="avatar" id="accountAvatar">👤</span>
+          <span class="account-name" id="accountName">Гость</span>
+          <span class="caret">▾</span>
+        </button>
+        <div class="menu" id="accountMenu">
+          <div class="menu-card">
+            <div class="menu-head" id="menuHead"></div>
+            <div class="menu-title">Мои ящики</div>
+            <div class="menu-list" id="menuBoxes"></div>
+            <div class="menu-actions" id="menuActions"></div>
+          </div>
+        </div>
+      </div>
+      <button class="btn ghost icon" id="themeBtn" title="Сменить тему">🌓</button>
+    </div>
   </header>
 
   <!-- ---------- стартовый экран ---------- -->
   <section class="card landing" id="landing" hidden>
     <div class="tabs" role="tablist">
       <button class="tab active" data-tab="create" role="tab">Создать почту</button>
-      <button class="tab" data-tab="login" role="tab">Войти</button>
+      <button class="tab" data-tab="login" role="tab">Войти в ящик</button>
     </div>
 
     <form class="pane" id="createPane" autocomplete="off">
-      <h2>Новый временный ящик</h2>
+      <h2>Новый ящик</h2>
       <p class="hint">По истечении срока ящик и все письма удаляются автоматически.</p>
       <div class="field">
         <span class="label">Срок жизни</span>
@@ -234,7 +316,9 @@
           <input type="radio" name="ttl" id="ttl12h" value="12h"><label for="ttl12h">12<small>часов</small></label>
           <input type="radio" name="ttl" id="ttl24h" value="24h"><label for="ttl24h">24<small>часа</small></label>
           <input type="radio" name="ttl" id="ttl7d" value="7d"><label for="ttl7d">7<small>дней</small></label>
+          <input type="radio" name="ttl" id="ttlForever" value="forever"><label for="ttlForever" id="ttlForeverLabel"><span class="forever">∞</span><small>навсегда</small></label>
         </div>
+        <div class="ttl-note" id="ttlNote" hidden></div>
       </div>
       <details class="custom">
         <summary>Свой адрес (необязательно)</summary>
@@ -244,6 +328,9 @@
         </div>
       </details>
       <button class="btn primary big" type="submit" id="createBtn">Создать почту</button>
+      <div class="account-cta" id="accountCta" hidden>
+        <button type="button" class="link" data-open-auth="register">Создайте аккаунт</button>, чтобы хранить ящики и открывать их с любого устройства
+      </div>
     </form>
 
     <form class="pane" id="loginPane" hidden>
@@ -251,11 +338,11 @@
       <p class="hint">Пароль показывается после создания ящика — кнопка «Пароль».</p>
       <div class="field">
         <label for="loginAddr">Адрес</label>
-        <input class="input" id="loginAddr" type="email" placeholder="name@domain.com" autocomplete="username" spellcheck="false" autocapitalize="off" required>
+        <input class="input" id="loginAddr" type="email" placeholder="name@domain.com" autocomplete="off" spellcheck="false" autocapitalize="off" required>
       </div>
       <div class="field">
-        <label for="loginPass">Пароль</label>
-        <input class="input" id="loginPass" type="password" autocomplete="current-password" required>
+        <label for="loginPass">Пароль ящика</label>
+        <input class="input" id="loginPass" type="password" autocomplete="off" required>
       </div>
       <button class="btn primary big" type="submit" id="loginBtn">Войти</button>
     </form>
@@ -273,7 +360,7 @@
           <button class="btn primary" id="copyBtn">Копировать</button>
           <button class="btn" id="passBtn">Пароль</button>
           <button class="btn" id="newBtn">Новая почта</button>
-          <button class="btn" id="logoutBtn" title="Убрать ящик с этого устройства, не удаляя его">Выйти</button>
+          <button class="btn" id="logoutBtn">Выйти</button>
           <button class="btn danger" id="delBoxBtn" title="Удалить ящик сейчас">Удалить</button>
         </div>
       </div>
@@ -287,7 +374,6 @@
         <span id="expiry"></span>
         <span id="updated"></span>
       </div>
-      <div class="boxes" id="boxes"></div>
     </section>
 
     <section class="card mail" id="mail">
@@ -307,6 +393,38 @@
     Не используйте временную почту для важных аккаунтов. Отправка писем не поддерживается.
   </footer>
 </div>
+
+<!-- ---------- вход в аккаунт ---------- -->
+<dialog class="auth" id="authDialog">
+  <div class="pane">
+    <div class="auth-top">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-auth-tab="login" role="tab">Вход</button>
+        <button class="tab" data-auth-tab="register" role="tab">Регистрация</button>
+      </div>
+      <button class="btn ghost icon" id="authClose" title="Закрыть">✕</button>
+    </div>
+    <p class="hint" style="margin:0" id="authHint">Аккаунт хранит ваши ящики, в том числе вечные, — открывайте их с любого устройства.</p>
+    <form id="authForm" style="display:grid;gap:14px">
+      <div class="field">
+        <label for="authUser">Имя пользователя</label>
+        <input class="input" id="authUser" autocomplete="username" spellcheck="false" autocapitalize="off" required>
+      </div>
+      <div class="field">
+        <label for="authPass">Пароль</label>
+        <input class="input" id="authPass" type="password" autocomplete="current-password" minlength="6" required>
+      </div>
+      <div class="field" id="authPass2Field" hidden>
+        <label for="authPass2">Повторите пароль</label>
+        <input class="input" id="authPass2" type="password" autocomplete="new-password">
+      </div>
+      <button class="btn primary big" type="submit" id="authSubmit">Войти</button>
+    </form>
+    <div class="divider" id="googleDivider" hidden>или</div>
+    <div id="googleBtn" hidden></div>
+  </div>
+</dialog>
+
 <div class="toast" id="toast"></div>
 
 <script src="config.js"></script>
@@ -316,17 +434,24 @@
   const POLL_MS = 5000;
   const STORE_KEY = 'tempmail.boxes.v2';
   const ACTIVE_KEY = 'tempmail.active.v2';
+  const SESSION_KEY = 'tempmail.session.v1';
   const THEME_KEY = 'tempmail.theme';
 
   const $ = id => document.getElementById(id);
   const els = {
     landing: $('landing'), app: $('app'), createPane: $('createPane'), loginPane: $('loginPane'),
     customLogin: $('customLogin'), domainSel: $('domainSel'), createBtn: $('createBtn'),
+    ttlForever: $('ttlForever'), ttlForeverLabel: $('ttlForeverLabel'), ttlNote: $('ttlNote'), accountCta: $('accountCta'),
     loginAddr: $('loginAddr'), loginPass: $('loginPass'), loginBtn: $('loginBtn'), backToBox: $('backToBox'),
     addr: $('addr'), copyBtn: $('copyBtn'), passBtn: $('passBtn'), newBtn: $('newBtn'), logoutBtn: $('logoutBtn'),
     delBoxBtn: $('delBoxBtn'), secret: $('secret'), passValue: $('passValue'), copyPassBtn: $('copyPassBtn'),
-    status: $('status'), expiry: $('expiry'), updated: $('updated'), boxes: $('boxes'),
+    status: $('status'), expiry: $('expiry'), updated: $('updated'),
     mail: $('mail'), list: $('list'), view: $('view'), count: $('count'), refreshBtn: $('refreshBtn'),
+    account: $('account'), accountBtn: $('accountBtn'), accountAvatar: $('accountAvatar'), accountName: $('accountName'),
+    menuHead: $('menuHead'), menuBoxes: $('menuBoxes'), menuActions: $('menuActions'),
+    authDialog: $('authDialog'), authForm: $('authForm'), authUser: $('authUser'), authPass: $('authPass'),
+    authPass2: $('authPass2'), authPass2Field: $('authPass2Field'), authSubmit: $('authSubmit'), authClose: $('authClose'),
+    googleDivider: $('googleDivider'), googleBtn: $('googleBtn'), authHint: $('authHint'),
     toast: $('toast'), themeBtn: $('themeBtn'),
   };
 
@@ -342,23 +467,33 @@
   };
 
   // ---------- state ----------
-  let boxes = store.get(STORE_KEY, []);           // [{id, address, password, token, expiresAt}]
+  let boxes = store.get(STORE_KEY, []);           // [{id, address, password, token, expiresAt}]; expiresAt null — навсегда
   let activeId = store.get(ACTIVE_KEY, null);
+  let session = store.get(SESSION_KEY, null);     // {token, user}
+  let features = { accounts: false, googleClientId: '' };
   let messages = [];
   let openId = null;
   let pollTimer = null;
   let polling = false;
+  let authMode = 'login';
+  let pendingCreate = false;
 
   const active = () => boxes.find(b => b.id === activeId) || null;
   const save = () => { store.set(STORE_KEY, boxes); store.set(ACTIVE_KEY, activeId); };
+  const saveSession = () => store.set(SESSION_KEY, session);
 
   // ---------- helpers ----------
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const members = data => Array.isArray(data) ? data : (data?.['hydra:member'] || []);
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const isExpired = b => b.expiresAt != null && b.expiresAt <= Date.now();
+  const isDark = () => document.documentElement.dataset.theme === 'dark'
+    || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
 
   function toast(text) {
+    // Открытый <dialog> лежит поверх страницы, поэтому тост переезжает внутрь него
+    const host = els.authDialog.open ? els.authDialog : document.body;
+    if (els.toast.parentNode !== host) host.appendChild(els.toast);
     els.toast.textContent = text;
     els.toast.classList.add('show');
     clearTimeout(toast.t);
@@ -387,6 +522,8 @@
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   }
 
+  const boxLeft = b => b.expiresAt == null ? '∞ навсегда' : '⏱ ' + fmtLeft(b.expiresAt - Date.now());
+
   async function copy(text) {
     try { await navigator.clipboard.writeText(text); return true; }
     catch {
@@ -397,13 +534,14 @@
   }
 
   // ---------- API ----------
-  async function request(url, { method = 'GET', body, token, raw = false, retry = true } = {}) {
+  async function request(url, { method = 'GET', body, token, raw = false, retry = true, withSession = false } = {}) {
     const headers = { Accept: 'application/json' };
     if (body) headers['Content-Type'] = 'application/json';
     if (token) headers.Authorization = 'Bearer ' + token;
+    if (withSession && session?.token) headers['X-Session'] = session.token;
     const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
 
-    if (res.status === 429 && retry) { await sleep(1200); return request(url, { method, body, token, raw, retry: false }); }
+    if (res.status === 429 && retry) { await sleep(1200); return request(url, { method, body, token, raw, retry: false, withSession }); }
     if (res.status === 401 && token && retry) {
       const box = active();
       if (box && box.token === token) {
@@ -425,7 +563,8 @@
     return res.json();
   }
   const api = (path, opts) => request(BACKEND + '/api' + path, opts);
-  const svc = (path, body) => request(BACKEND + '/svc' + path, { method: 'POST', body, retry: false });
+  const svc = (path, body) => request(BACKEND + '/svc' + path, { method: 'POST', body, retry: false, withSession: true });
+  const authApi = (path, body) => request(BACKEND + '/auth' + path, { method: body ? 'POST' : 'GET', body, retry: false, withSession: true });
 
   async function relogin(box) {
     const data = await svc('/login', { address: box.address, password: box.password });
@@ -444,6 +583,15 @@
     }
   }
 
+  async function loadFeatures() {
+    try {
+      const info = await request(BACKEND + '/svc/info', { retry: false });
+      features = { accounts: !!info.accounts, googleClientId: info.googleClientId || '' };
+    } catch {
+      features = { accounts: false, googleClientId: '' }; // server.js — без аккаунтов
+    }
+  }
+
   function addBox(data) {
     boxes = boxes.filter(b => b.id !== data.id);
     boxes.unshift({ id: data.id, address: data.address, password: data.password, token: data.token, expiresAt: data.expiresAt });
@@ -451,13 +599,137 @@
     save();
   }
 
+  // ---------- аккаунт ----------
+  // Список ящиков аккаунта — главный; токены mail.tm, полученные на этом устройстве, сохраняем
+  function applyAccountBoxes(list) {
+    const cache = new Map(boxes.map(b => [b.id, b]));
+    boxes = list.map(b => ({ ...b, token: cache.get(b.id)?.token || null }));
+    if (!active()) activeId = boxes[0]?.id || null;
+    save();
+  }
+
+  async function syncAccount() {
+    const data = await authApi('/me');
+    session.user = data.user;
+    saveSession();
+    applyAccountBoxes(data.boxes);
+  }
+
+  async function afterAuth(data, message) {
+    session = { token: data.token, user: data.user };
+    saveSession();
+    const local = boxes.filter(b => b.password).map(b => ({ address: b.address, password: b.password }));
+    if (local.length) {
+      try { await authApi('/boxes/import', { boxes: local }); } catch {}
+    }
+    await syncAccount();
+    els.authDialog.close();
+    renderAccount();
+    toast(message);
+    if (pendingCreate) {
+      pendingCreate = false;
+      els.createPane.requestSubmit();
+    } else if (active()) {
+      showApp();
+    } else {
+      refreshLanding();
+    }
+  }
+
+  async function signOut() {
+    try { await authApi('/logout', {}); } catch {}
+    session = null;
+    saveSession();
+    boxes = [];
+    activeId = null;
+    save();
+    closeMenu();
+    renderAccount();
+    showLanding();
+    toast('Вы вышли из аккаунта');
+  }
+
+  function openAuth(mode = 'login', reason = '') {
+    if (!features.accounts) return;
+    closeMenu();
+    setAuthMode(mode);
+    els.authHint.textContent = reason || 'Аккаунт хранит ваши ящики, в том числе вечные, — открывайте их с любого устройства.';
+    els.authDialog.showModal();
+    renderGoogleButton();
+    els.authUser.focus();
+  }
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    document.querySelectorAll('[data-auth-tab]').forEach(t => t.classList.toggle('active', t.dataset.authTab === mode));
+    els.authPass2Field.hidden = mode !== 'register';
+    els.authPass2.required = mode === 'register';
+    els.authPass.autocomplete = mode === 'register' ? 'new-password' : 'current-password';
+    els.authSubmit.textContent = mode === 'register' ? 'Создать аккаунт' : 'Войти';
+  }
+
+  // ---------- Google ----------
+  let googleReady = null;
+  function loadGoogle() {
+    if (!features.googleClientId) return Promise.resolve(false);
+    if (googleReady) return googleReady;
+    googleReady = new Promise(resolve => {
+      const s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true;
+      s.onload = () => {
+        google.accounts.id.initialize({ client_id: features.googleClientId, callback: onGoogleCredential, ux_mode: 'popup' });
+        resolve(true);
+      };
+      s.onerror = () => resolve(false);
+      document.head.appendChild(s);
+    });
+    return googleReady;
+  }
+
+  async function renderGoogleButton() {
+    const ok = await loadGoogle();
+    els.googleDivider.hidden = els.googleBtn.hidden = !ok;
+    if (!ok) return;
+    els.googleBtn.innerHTML = '';
+    google.accounts.id.renderButton(els.googleBtn, {
+      theme: isDark() ? 'filled_black' : 'outline', size: 'large', shape: 'pill',
+      text: 'continue_with', locale: 'ru', width: 300,
+    });
+  }
+
+  async function onGoogleCredential(resp) {
+    try {
+      const data = await authApi('/google', { credential: resp.credential });
+      await afterAuth(data, 'Вход через Google выполнен');
+    } catch (e) { toast(e.message); }
+  }
+
   // ---------- screens ----------
   function showLanding(tab = 'create') {
     stopPolling();
     els.app.hidden = true;
     els.landing.hidden = false;
-    els.backToBox.hidden = !boxes.length;
     setTab(tab);
+    refreshLanding();
+  }
+
+  function refreshLanding() {
+    els.backToBox.hidden = !boxes.length;
+    els.ttlForever.disabled = els.ttlForeverLabel.hidden = !features.accounts;
+    if (!features.accounts && els.ttlForever.checked) $('ttl1h').checked = true;
+    els.accountCta.hidden = !features.accounts || !!session;
+    updateTtlNote();
+  }
+
+  function updateTtlNote() {
+    const forever = els.ttlForever.checked;
+    els.ttlNote.hidden = !forever;
+    if (forever) {
+      els.ttlNote.innerHTML = session
+        ? 'Ящик <b>не удаляется</b>, пока вы сами его не удалите, и хранится в вашем аккаунте.'
+        : 'Почта навсегда хранится в аккаунте — <b>войдите или зарегистрируйтесь</b>.';
+    }
   }
 
   function showApp() {
@@ -475,7 +747,7 @@
   }
 
   function setTab(tab) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.querySelectorAll('[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
     els.createPane.hidden = tab !== 'create';
     els.loginPane.hidden = tab !== 'login';
   }
@@ -485,13 +757,44 @@
     els.status.innerHTML = `<span class="dot ${ok ? '' : 'off'}"></span>${esc(text)}`;
   }
 
+  function avatarHtml(user) {
+    if (user?.picture) return `<img src="${esc(user.picture)}" alt="" referrerpolicy="no-referrer">`;
+    if (user) return esc((user.name || user.username || '?').trim().charAt(0).toUpperCase());
+    return '👤';
+  }
+
+  function renderAccount() {
+    const u = session?.user;
+    els.accountAvatar.innerHTML = avatarHtml(u);
+    els.accountName.textContent = u ? (u.name || u.username) : 'Гость';
+    els.menuHead.innerHTML = u
+      ? `<span class="avatar">${avatarHtml(u)}</span><div><b>${esc(u.name || u.username)}</b><small>${esc(u.email || '@' + u.username)}</small></div>`
+      : `<span class="avatar">👤</span><div><b>Гость</b><small>Ящики хранятся только в этом браузере</small></div>`;
+    els.menuBoxes.innerHTML = boxes.length
+      ? boxes.map(b => `<button class="menu-item ${b.id === activeId ? 'active' : ''}" data-box="${esc(b.id)}">
+          <span class="mi-main"><span class="mi-addr">${esc(b.address)}</span><span class="mi-meta" data-left="${esc(b.id)}">${esc(boxLeft(b))}</span></span>
+          ${b.id === activeId ? '<span class="mi-check">✓</span>' : ''}
+        </button>`).join('')
+      : '<div class="menu-empty">Ящиков пока нет</div>';
+    els.menuActions.innerHTML = `
+      <button class="menu-item" data-menu="new">＋ Новая почта</button>
+      ${u ? '<button class="menu-item danger" data-menu="signout">Выйти из аккаунта</button>'
+          : features.accounts ? '<button class="menu-item" data-menu="auth">Войти или создать аккаунт</button>' : ''}`;
+    els.logoutBtn.textContent = u ? 'Убрать' : 'Выйти';
+    els.logoutBtn.title = u ? 'Убрать ящик из аккаунта, не удаляя его' : 'Убрать ящик с этого устройства, не удаляя его';
+  }
+
+  function closeMenu() {
+    els.account.classList.remove('open');
+    els.accountBtn.setAttribute('aria-expanded', 'false');
+    if (els.account.contains(document.activeElement)) document.activeElement.blur();
+  }
+
   function renderBox() {
     const box = active();
     els.addr.textContent = box ? box.address : '—';
     els.passValue.textContent = box?.password || '';
-    els.boxes.innerHTML = boxes.length > 1
-      ? boxes.map(b => `<button class="chip ${b.id === activeId ? 'active' : ''}" data-box="${esc(b.id)}" title="${esc(b.address)}"><span>${esc(b.address)}</span></button>`).join('')
-      : '';
+    renderAccount();
   }
 
   function renderList() {
@@ -657,10 +960,14 @@
         removeBox(b, `Срок жизни ящика ${b.address} истёк`);
       }
     }
+    for (const el of els.menuBoxes.querySelectorAll('[data-left]')) {
+      const b = boxes.find(x => x.id === el.dataset.left);
+      if (b) el.textContent = boxLeft(b);
+    }
     const box = active();
     if (!box || els.app.hidden) return;
     if (box.expiresAt == null) {
-      els.expiry.innerHTML = '⏱ без срока';
+      els.expiry.innerHTML = '∞ <span class="timer">навсегда</span>';
     } else {
       const left = box.expiresAt - Date.now();
       els.expiry.innerHTML = `⏱ удалится через <span class="timer ${left < 5 * 60 * 1000 ? 'soon' : ''}">${esc(fmtLeft(left))}</span>`;
@@ -673,15 +980,28 @@
     if (wasActive) activeId = boxes[0]?.id || null;
     save();
     if (message) toast(message);
-    if (!wasActive) { renderBox(); return; }
+    if (!wasActive) { renderAccount(); return; }
     if (activeId) showApp();
-    else showLanding();
+    else { renderAccount(); showLanding(); }
+  }
+
+  function switchBox(id) {
+    activeId = id;
+    save();
+    closeMenu();
+    els.account.classList.add('picked');
+    showApp();
   }
 
   // ---------- actions ----------
   els.createPane.addEventListener('submit', async e => {
     e.preventDefault();
     const lifetime = els.createPane.querySelector('input[name="ttl"]:checked').value;
+    if (lifetime === 'forever' && !session) {
+      pendingCreate = true;
+      openAuth('register', 'Почта навсегда хранится в аккаунте. Зарегистрируйтесь или войдите — и ящик создастся сразу.');
+      return;
+    }
     const login = els.customLogin.value.trim().toLowerCase();
     if (login && !/^[a-z0-9._-]{3,32}$/.test(login)) { toast('Логин: 3–32 символа, латиница, цифры, . _ -'); return; }
     els.createBtn.disabled = true;
@@ -691,7 +1011,7 @@
       addBox(data);
       els.customLogin.value = '';
       showApp();
-      toast('Почта создана');
+      toast(lifetime === 'forever' ? 'Почта навсегда создана' : 'Почта создана');
       askNotifications();
     } catch (err) {
       toast(err.message);
@@ -710,7 +1030,7 @@
       addBox(data);
       els.loginPass.value = '';
       showApp();
-      toast('Вход выполнен');
+      toast(session ? 'Ящик добавлен в аккаунт' : 'Вход выполнен');
       askNotifications();
     } catch (err) {
       toast(err.message);
@@ -720,18 +1040,66 @@
     }
   });
 
-  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
+  els.authForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const username = els.authUser.value.trim().toLowerCase();
+    const password = els.authPass.value;
+    if (authMode === 'register' && password !== els.authPass2.value) { toast('Пароли не совпадают'); return; }
+    els.authSubmit.disabled = true;
+    try {
+      const data = await authApi(authMode === 'register' ? '/register' : '/login', { username, password });
+      els.authPass.value = els.authPass2.value = '';
+      await afterAuth(data, authMode === 'register' ? 'Аккаунт создан' : 'Вход выполнен');
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      els.authSubmit.disabled = false;
+    }
+  });
+
+  document.querySelectorAll('[data-tab]').forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
+  document.querySelectorAll('[data-auth-tab]').forEach(t => t.addEventListener('click', () => setAuthMode(t.dataset.authTab)));
+  document.querySelectorAll('[data-open-auth]').forEach(b => b.addEventListener('click', () => openAuth(b.dataset.openAuth)));
+  $('ttl').addEventListener('change', updateTtlNote);
+  els.authClose.addEventListener('click', () => els.authDialog.close());
+  els.authDialog.addEventListener('close', () => { pendingCreate = false; });
+  els.authDialog.addEventListener('click', e => { if (e.target === els.authDialog) els.authDialog.close(); });
+
+  els.accountBtn.addEventListener('click', () => {
+    els.account.classList.remove('picked');
+    const open = els.account.classList.toggle('open');
+    els.accountBtn.setAttribute('aria-expanded', String(open));
+  });
+  els.account.addEventListener('mouseleave', () => els.account.classList.remove('picked'));
+  document.addEventListener('click', e => { if (!els.account.contains(e.target)) closeMenu(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+  els.menuBoxes.addEventListener('click', e => {
+    const item = e.target.closest('[data-box]');
+    if (item) switchBox(item.dataset.box);
+  });
+  els.menuActions.addEventListener('click', e => {
+    const act = e.target.closest('[data-menu]')?.dataset.menu;
+    if (act === 'new') { closeMenu(); showLanding('create'); }
+    if (act === 'auth') openAuth('login');
+    if (act === 'signout') signOut();
+  });
+
   els.backToBox.addEventListener('click', () => { if (active()) showApp(); });
   els.newBtn.addEventListener('click', () => showLanding('create'));
   els.passBtn.addEventListener('click', () => { els.secret.hidden = !els.secret.hidden; });
   els.copyBtn.addEventListener('click', async () => { if (active() && await copy(active().address)) toast('Адрес скопирован'); });
   els.copyPassBtn.addEventListener('click', async () => { if (active() && await copy(active().password)) toast('Пароль скопирован'); });
 
-  els.logoutBtn.addEventListener('click', () => {
+  els.logoutBtn.addEventListener('click', async () => {
     const box = active();
     if (!box) return;
-    if (!confirm(`Выйти из ${box.address}?\nЯщик продолжит работать до конца срока — войти обратно можно по адресу и паролю.\n\nПароль: ${box.password}`)) return;
-    removeBox(box, 'Вы вышли из ящика');
+    const where = session ? 'из аккаунта' : 'с этого устройства';
+    if (!confirm(`Убрать ${box.address} ${where}?\nЯщик продолжит работать — войти обратно можно по адресу и паролю.\n\nПароль: ${box.password}`)) return;
+    if (session) {
+      try { await authApi('/boxes/remove', { id: box.id }); }
+      catch (e) { toast('Ошибка: ' + e.message); return; }
+    }
+    removeBox(box, session ? 'Ящик убран из аккаунта' : 'Вы вышли из ящика');
   });
 
   els.delBoxBtn.addEventListener('click', async () => {
@@ -747,10 +1115,6 @@
   });
 
   els.refreshBtn.addEventListener('click', () => refresh(true));
-  els.boxes.addEventListener('click', e => {
-    const chip = e.target.closest('[data-box]');
-    if (chip && chip.dataset.box !== activeId) { activeId = chip.dataset.box; save(); showApp(); }
-  });
   els.list.addEventListener('click', e => {
     const item = e.target.closest('[data-msg]');
     if (item) openMessage(item.dataset.msg);
@@ -769,21 +1133,33 @@
   const savedTheme = store.get(THEME_KEY, null);
   if (savedTheme) document.documentElement.dataset.theme = savedTheme;
   els.themeBtn.addEventListener('click', () => {
-    const cur = document.documentElement.dataset.theme
-      || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    const next = cur === 'dark' ? 'light' : 'dark';
+    const next = isDark() ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     store.set(THEME_KEY, next);
+    if (els.authDialog.open) renderGoogleButton();
   });
 
   // ---------- init ----------
-  boxes = boxes.filter(b => !isExpired(b));
-  if (!active()) activeId = boxes[0]?.id || null;
-  save();
-  loadDomains();
-  setInterval(tick, 1000);
-  if (active()) showApp();
-  else showLanding();
+  async function init() {
+    boxes = boxes.filter(b => !isExpired(b));
+    if (!active()) activeId = boxes[0]?.id || null;
+    save();
+    renderAccount();
+    loadDomains();
+    await loadFeatures();
+    if (session && features.accounts) {
+      try { await syncAccount(); }
+      catch (e) {
+        if (e.status === 401) { session = null; saveSession(); toast('Сессия истекла, войдите снова'); }
+      }
+    }
+    renderAccount();
+    setInterval(tick, 1000);
+    if (active()) showApp();
+    else showLanding();
+  }
+
+  init();
 })();
 </script>
 </body>

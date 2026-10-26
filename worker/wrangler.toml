@@ -2,6 +2,10 @@ name = "temp-mail"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
 
+# Worker сам отдаёт страницу из public/ — это зеркало сайта и удобный локальный запуск через `wrangler dev`
+[assets]
+directory = "../public"
+
 # Удаление просроченных ящиков — раз в минуту
 [triggers]
 crons = ["* * * * *"]
@@ -9,6 +13,8 @@ crons = ["* * * * *"]
 [vars]
 # С каких сайтов браузеру разрешено обращаться к Worker'у
 ALLOWED_ORIGINS = "https://wilberods-coder.github.io,http://127.0.0.1:5190,http://localhost:5190"
+# OAuth Client ID из Google Cloud Console (публичный, не секрет). Пусто — кнопка Google скрыта
+GOOGLE_CLIENT_ID = ""
 
 [[d1_databases]]
 binding = "DB"
