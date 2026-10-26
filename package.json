@@ -1,0 +1,24 @@
+{
+  "name": "temp-mail",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Сервис временных почтовых ящиков поверх API mail.tm",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wilberods-coder/temp-mail.git"
+  },
+  "keywords": [
+    "temp-mail",
+    "disposable-email",
+    "mail.tm",
+    "nodejs"
+  ]
+}
